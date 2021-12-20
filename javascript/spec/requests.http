@@ -1,0 +1,14 @@
+POST http://localhost:3000/user
+Content-type: application/json
+
+{
+  "username": "the_user_name",
+  "name": "The User",
+  "surname": "Name",
+  "age": {{ $randomInt 9 99 }},
+  "password": "the_password"
+}
+
+
+###
+GET http://localhost:3000/user/0
