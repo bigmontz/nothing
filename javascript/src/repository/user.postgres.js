@@ -43,8 +43,8 @@ export default class UserPostgresRepository {
       }
 
       await this._pool.query(
-        "UPDATE users SET password = $1 WHERE id = $2",
-        [newPassword, id]);
+        "UPDATE users SET password = $1, updated_at = $3 WHERE id = $2",
+        [newPassword, id, new Date()]);
       
       await client.query("COMMIT");
 

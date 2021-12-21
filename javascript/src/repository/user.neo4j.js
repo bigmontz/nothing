@@ -53,8 +53,8 @@ export default class UserNeo4jRepository {
           throw new PasswordNotMatchError(id);
         }
         await tx.run(
-          `MATCH (user:User) WHERE ID(user) = $id SET user.password = $newPassword RETURN user`,
-          { id: Number(id), newPassword }
+          `MATCH (user:User) WHERE ID(user) = $id SET user.password = $newPassword, user.updatedAt = $updatedAt RETURN user`,
+          { id: Number(id), newPassword, updatedAt: types.DateTime.fromStandardDate(new Date()) }
         );
         return { id };
       });
