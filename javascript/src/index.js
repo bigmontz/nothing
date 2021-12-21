@@ -5,8 +5,10 @@ import UserController from './controller/user.js';
 import { createCrudRouteFor } from './routes/crud.route.js';
 import { configureNeo4jDriver } from './config/neo4j.js';
 import { configurePostgresDriver } from './config/postgres.js';
+import { configureMongodbDriver } from './config/mongodb.js';
+import UserMongodbRepository from './repository/user.mongodb.js';
 
-const databaseAccess = configureDatabaseAccess();
+const databaseAccess = await configureDatabaseAccess();
 
 const userController = new UserController(databaseAccess.repositories.user);
 const userRoute = createCrudRouteFor(userController);
@@ -22,17 +24,33 @@ process.on('SIGINT', async () => {
 })
 
 
-function configureDatabaseAccess() {
+async function configureDatabaseAccess() {
   switch (process.env.DB_TYPE) {
     case 'postgres':
-      return configurePostgresDatabaseAccess();
+      return await configurePostgresDatabaseAccess();
+    case 'mongodb':
+      return await configureMongodbDatabaseAccess();
     case 'neo4j':
     default:
-      return configureNeo4jDatabaseAccess();
+      return await configureNeo4jDatabaseAccess();
   }
 }
 
-function configurePostgresDatabaseAccess() {
+async function configureMongodbDatabaseAccess() {
+  const driver = await configureMongodbDriver(
+    process.env.MONGODB_ADDRESS || "localhost",
+    process.env.MONGODB_USER || "mongodb",
+    process.env.MONGODB_PASSWORD || "mongodb"
+  );
+  return {
+    close: () => driver.close(),
+    repositories: {
+      user: new UserMongodbRepository(driver)
+    }
+  }
+}
+
+async function configurePostgresDatabaseAccess() {
   const driver = configurePostgresDriver(
     process.env.POSTGRES_URL || "localhost",
     process.env.POSTGRES_USER || "postgres",
@@ -45,7 +63,7 @@ function configurePostgresDatabaseAccess() {
   }
 }
 
-function configureNeo4jDatabaseAccess() {
+async function configureNeo4jDatabaseAccess() {
   const driver = configureNeo4jDriver(
     process.env.NEO4J_URL || "neo4j://localhost",
     process.env.NEO4J_USER || "neo4j",
