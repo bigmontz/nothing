@@ -36,14 +36,14 @@ func (u *userController) ServeHTTP(responseWriter http.ResponseWriter, request *
 }
 
 func (u *userController) create(responseWriter http.ResponseWriter, request *http.Request) {
-	user, err := deserializeUser(request.Body)
+	user, err := unmarshalUser(request.Body)
 	if err != nil {
 		responseWriter.WriteHeader(http.StatusBadRequest)
 		responseWriter.Header().Add("Content-Type", "plain/text")
 		_, _ = responseWriter.Write([]byte(err.Error()))
 	}
 	result, err := u.userRepository.Create(user)
-	marshallUser(responseWriter, err, result)
+	marshalUser(responseWriter, err, result)
 }
 
 func (u *userController) findById(responseWriter http.ResponseWriter, request *http.Request) {
@@ -55,10 +55,10 @@ func (u *userController) findById(responseWriter http.ResponseWriter, request *h
 		_, _ = responseWriter.Write([]byte(fmt.Sprintf("invalid user ID: %s", err.Error())))
 	}
 	result, err := u.userRepository.FindById(userId)
-	marshallUser(responseWriter, err, result)
+	marshalUser(responseWriter, err, result)
 }
 
-func marshallUser(responseWriter http.ResponseWriter, err error, result *repository.User) {
+func marshalUser(responseWriter http.ResponseWriter, err error, result *repository.User) {
 	if err != nil {
 		responseWriter.WriteHeader(http.StatusInternalServerError)
 		responseWriter.Header().Add("Content-Type", "plain/text")
@@ -69,7 +69,7 @@ func marshallUser(responseWriter http.ResponseWriter, err error, result *reposit
 	_ = json.NewEncoder(responseWriter).Encode(result)
 }
 
-func deserializeUser(body io.ReadCloser) (*repository.User, error) {
+func unmarshalUser(body io.ReadCloser) (*repository.User, error) {
 	var result repository.User
 	if err := json.NewDecoder(body).Decode(&result); err != nil {
 		return nil, err
