@@ -1,4 +1,4 @@
-
+import { PasswordNotMatchError, UserNotFoundError } from "../domain/exceptions.js";
 
 export default class UserPostgresRepository {
   constructor(pool) {
@@ -10,6 +10,10 @@ export default class UserPostgresRepository {
       "SELECT * FROM users WHERE id = $1",
       [id]);
 
+    if (result.rows.length === 0) {
+      throw new UserNotFoundError(id);
+    }
+
     return this._toUser(result.rows[0]);
   }
 
@@ -19,6 +23,38 @@ export default class UserPostgresRepository {
       [user.username, user.name, user.age, user.surname, user.password, new Date(), new Date()]);
 
     return this._toUser(result.rows[0])
+  }
+
+  async updatePassword({id, password, newPassword}) {
+    const client = await this._pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const result = await this._pool.query(
+        "SELECT * FROM users WHERE id = $1",
+        [id]);
+
+      if (result.rows.length === 0) {
+        throw new UserNotFoundError(id);
+      }
+
+      if (result.rows[0].password !== password) {
+        throw new PasswordNotMatchError(id);
+      }
+
+      await this._pool.query(
+        "UPDATE users SET password = $1 WHERE id = $2",
+        [newPassword, id]);
+      
+      await client.query("COMMIT");
+
+      return { id };
+    } catch(error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   _toUser(row) {
