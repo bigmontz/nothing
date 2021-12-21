@@ -11,4 +11,14 @@ Content-type: application/json
 
 
 ###
-GET http://localhost:3000/user/3
+GET http://localhost:3000/user/0
+
+
+###
+PUT http://localhost:3000/user/0/password
+Content-type: application/json
+
+{
+  "password": "the_new_password",
+  "newPassword": "the_new_password"
+}

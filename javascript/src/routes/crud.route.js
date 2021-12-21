@@ -6,6 +6,7 @@ function createCrudRouteFor(controller) {
 
   router.get('/:id', controller.getById.bind(controller));
   router.post('/', controller.create.bind(controller));
+  router.put('/:id/password', controller.updatePassword.bind(controller));
 
   return router;
 }
