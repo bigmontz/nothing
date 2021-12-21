@@ -5,7 +5,7 @@ import UserController from './controller/user.js';
 import { createCrudRouteFor } from './routes/crud.route.js';
 import { configureNeo4jDriver } from './config/neo4j.js';
 import { configurePostgresDriver } from './config/postgres.js';
-import { configureMongdbDriver } from './config/mongodb.js';
+import { configureMongodbDriver } from './config/mongodb.js';
 import UserMongodbRepository from './repository/user.mongodb.js';
 
 const databaseAccess = await configureDatabaseAccess();
@@ -37,7 +37,7 @@ async function configureDatabaseAccess() {
 }
 
 async function configureMongodbDatabaseAccess() {
-  const driver = await configureMongdbDriver(
+  const driver = await configureMongodbDriver(
     process.env.MONGODB_ADDRESS || "localhost",
     process.env.MONGODB_USER || "mongodb",
     process.env.MONGODB_PASSWORD || "mongodb"
