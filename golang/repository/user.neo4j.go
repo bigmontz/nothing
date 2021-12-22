@@ -38,7 +38,7 @@ func (u *userNeo4jRepository) Create(user *User) (result *User, err error) {
 		if txFuncErr != nil {
 			return nil, txFuncErr
 		}
-		return extractUser(result)
+		return extractUserFromResult(result)
 	})
 	if err != nil {
 		return
@@ -56,7 +56,7 @@ func (u *userNeo4jRepository) FindById(userId int64) (result *User, err error) {
 		if txFuncErr != nil {
 			return nil, txFuncErr
 		}
-		return extractUser(result)
+		return extractUserFromResult(result)
 	})
 	if err != nil {
 		return
@@ -68,7 +68,7 @@ func (u *userNeo4jRepository) Close() error {
 	return u.driver.Close()
 }
 
-func extractUser(result neo4j.Result) (interface{}, error) {
+func extractUserFromResult(result neo4j.Result) (interface{}, error) {
 	record, txFuncErr := result.Single()
 	if txFuncErr != nil {
 		return nil, txFuncErr
