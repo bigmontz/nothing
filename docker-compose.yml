@@ -39,3 +39,31 @@ services:
     ports:
       - "26257:26257"
       - "8080:8080"
+  cockroachdb_cluster_1:
+    image: cockroachdb/cockroach:v21.2.3
+    container_name: cockroachdb_cluster_1
+    hostname: cockroachdb_cluster_1
+    command: start --insecure --join=cockroachdb_cluster_1,cockroachdb_cluster_2,cockroachdb_cluster_3
+    environment:
+      - COCKROACH_PASSWORD=cockroach
+      - COCKROACH_DATABASE=system
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+  cockroachdb_cluster_2:
+      image: cockroachdb/cockroach:v21.2.3
+      container_name: cockroachdb_cluster_2
+      hostname: cockroachdb_cluster_2
+      command: start --insecure --join=cockroachdb_cluster_1,cockroachdb_cluster_2,cockroachdb_cluster_3
+      environment:
+        - COCKROACH_PASSWORD=cockroach
+        - COCKROACH_DATABASE=system
+  cockroachdb_cluster_3:
+      image: cockroachdb/cockroach:v21.2.3
+      container_name: cockroachdb_cluster_3
+      hostname: cockroachdb_cluster_3
+      command: start --insecure --join=cockroachdb_cluster_1,cockroachdb_cluster_2,cockroachdb_cluster_3
+      environment:
+        - COCKROACH_PASSWORD=cockroach
+        - COCKROACH_DATABASE=system
+      

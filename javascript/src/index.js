@@ -7,6 +7,7 @@ import { configureNeo4jDriver } from './config/neo4j.js';
 import { configurePostgresDriver } from './config/postgres.js';
 import { configureMongodbDriver } from './config/mongodb.js';
 import UserMongodbRepository from './repository/user.mongodb.js';
+import UserCockroachdbRepository from './repository/user.cockroach.js';
 
 const databaseAccess = await configureDatabaseAccess();
 
@@ -86,7 +87,7 @@ async function configureCockroachdbDatabaseAccess() {
   return {
     close: () => driver.end(),
     repositories: {
-      user: new UserPostgresRepository(driver)
+      user: new UserCockroachdbRepository(driver)
     }
   }
 }
