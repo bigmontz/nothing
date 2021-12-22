@@ -30,6 +30,8 @@ async function configureDatabaseAccess() {
       return await configurePostgresDatabaseAccess();
     case 'mongodb':
       return await configureMongodbDatabaseAccess();
+    case 'cockroachdb':
+      return await configureCockroachdbDatabaseAccess();
     case 'neo4j':
     default:
       return await configureNeo4jDatabaseAccess();
@@ -62,6 +64,33 @@ async function configurePostgresDatabaseAccess() {
     }
   }
 }
+
+async function configureCockroachdbDatabaseAccess() {
+  const driver = configurePostgresDriver(
+    process.env.COCKROACH_URL || "localhost",
+    process.env.COCKROACH_USER || "admin",
+    process.env.COCKROACH_PASSWORD || "cockroach",
+    process.env.COCKROACH_DATABASE || "postgres",
+    process.env.COCKROACH_PORT || 26257);
+    
+  driver.query("CREATE TABLE IF NOT EXISTS users (" +
+	  "id SERIAL PRIMARY KEY," +
+	  "username VARCHAR(255) NOT NULL," +
+    "name VARCHAR(255) NOT NULL," +
+    "surname VARCHAR(255) NOT NULL," +
+    "password VARCHAR(255) NOT NULL," +
+    "age INTEGER NOT NULL," +
+    "created_at TIMESTAMP NOT NULL DEFAULT NOW(), " +
+    "updated_at TIMESTAMP NOT NULL DEFAULT NOW()" +
+	");");
+  return {
+    close: () => driver.end(),
+    repositories: {
+      user: new UserPostgresRepository(driver)
+    }
+  }
+}
+
 
 async function configureNeo4jDatabaseAccess() {
   const driver = configureNeo4jDriver(

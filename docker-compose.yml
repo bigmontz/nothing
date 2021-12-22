@@ -29,3 +29,13 @@ services:
       - MONGO_INITDB_DATABASE=mongodb
     ports:
       - "27017:27017"
+  cockroachdb:
+    image: cockroachdb/cockroach:v21.2.3
+    container_name: cockroachdb
+    command: start-single-node --insecure
+    environment:
+      - COCKROACH_PASSWORD=cockroach
+      - COCKROACH_DATABASE=system
+    ports:
+      - "26257:26257"
+      - "8080:8080"
