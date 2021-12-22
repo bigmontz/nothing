@@ -63,6 +63,7 @@ func marshalUser(responseWriter http.ResponseWriter, err error, result *reposito
 		responseWriter.WriteHeader(http.StatusInternalServerError)
 		responseWriter.Header().Add("Content-Type", "plain/text")
 		_, _ = responseWriter.Write([]byte(err.Error()))
+		return
 	}
 	responseWriter.WriteHeader(http.StatusOK)
 	responseWriter.Header().Add("Content-Type", "application/json")
