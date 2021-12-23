@@ -1,4 +1,5 @@
 import { types } from "neo4j-driver-lite";
+import { PasswordNotMatchError, UserNotFoundError } from "../domain/exceptions.js";
 
 
 export default class UserNeo4jRepository {
@@ -14,6 +15,9 @@ export default class UserNeo4jRepository {
         const result = await tx.run(
           `MATCH (user:User) WHERE ID(user) = $id RETURN user`
           , { id: Number(id) });
+        if (result.records.length === 0) {
+          throw new UserNotFoundError(id);
+        }
         return this._nodeToUser(result.records[0].get('user'));
       });
     } finally {
@@ -34,6 +38,28 @@ export default class UserNeo4jRepository {
 
     } finally {
       await session.close()
+    }
+  }
+
+  async updatePassword({id, password, newPassword}) {
+    const session = this._driver.session();
+    try {
+      return await session.writeTransaction(async tx => {
+        const user = await tx.run("MATCH (user:User) WHERE ID(user) = $id RETURN user", { id: Number(id) });
+        if (user.records.length === 0) {
+          throw new UserNotFoundError(id);
+        }
+        if (user.records[0].get('user').properties.password !== password) {
+          throw new PasswordNotMatchError(id);
+        }
+        await tx.run(
+          `MATCH (user:User) WHERE ID(user) = $id SET user.password = $newPassword, user.updatedAt = $updatedAt RETURN user`,
+          { id: Number(id), newPassword, updatedAt: types.DateTime.fromStandardDate(new Date()) }
+        );
+        return { id: Number(id) };
+      });
+    } finally {
+      await session.close();
     }
   }
 

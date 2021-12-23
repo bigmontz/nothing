@@ -1,3 +1,5 @@
+### Create user
+# @name create_user
 POST http://localhost:3000/user
 Content-type: application/json
 
@@ -9,6 +11,52 @@ Content-type: application/json
   "password": "the_password"
 }
 
+#### Response
+@user_id = {{create_user.response.body.$.id}}
+@user_password = {{create_user.response.body.$.password}}
 
-###
-GET http://localhost:3000/user/3
+
+### Get user
+# @name get_user
+GET http://localhost:3000/user/{{ user_id }}
+
+#### Response
+@user_password = {{get_user.response.body.$.password}}
+
+
+### Get user not found
+# @name get_user_not_found
+GET http://localhost:3000/user/-1
+
+
+### Update password
+# @name update_password
+PUT http://localhost:3000/user/{{user_id}}/password
+Content-type: application/json
+
+{
+  "password": "{{user_password}}",
+  "newPassword": "the_new_password"
+}
+
+
+### Update password wrong user id
+# @name update_password_wrong_user_id
+PUT http://localhost:3000/user/-1/password
+Content-type: application/json
+
+{
+  "password": "{{user_password}}",
+  "newPassword": "the_new_password"
+}
+
+
+### Update password wrong password
+# @name update_password_wrong_password
+PUT http://localhost:3000/user/{{user_id}}/password
+Content-type: application/json
+
+{
+  "password": "{{user_password}}124",
+  "newPassword": "the_new_password"
+}
