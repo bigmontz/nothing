@@ -2,8 +2,7 @@ from flask import Flask
 from os import environ
 from .encoder import AppJSONEncoder
 from .user import create_blueprint as create_user_blueprint
-from .user.repository import UserNeo4jRepository, UserPostgresRepository
-from psycopg_pool import ConnectionPool
+from .user.repository import UserNeo4jRepository, UserPostgresRepository, UserMongodbRepository
 
 
 def create_app():
@@ -19,7 +18,8 @@ def create_app():
 def configure_repositories(app):
     factories = {
         "neo4j": configure_neo4j_repository,
-        "postgres": configure_postgres_repository
+        "postgres": configure_postgres_repository,
+        "mongodb": configure_mongodb_repository,
     }
     return factories[environ.get("DB_TYPE", "neo4j")](app)
 
@@ -39,6 +39,8 @@ def configure_neo4j_repository(app):
 
 
 def configure_postgres_repository(app):
+    from psycopg_pool import ConnectionPool
+
     host = environ.get("POSTGRES_URL", "localhost")
     user = environ.get("POSTGRES_USER", "postgres")
     password = environ.get("POSTGRES_PASSWORD", "postgres")
@@ -48,4 +50,18 @@ def configure_postgres_repository(app):
 
     return {
         "user": UserPostgresRepository(pool)
+    }
+
+
+def configure_mongodb_repository(app):
+    from pymongo import MongoClient
+
+    host = environ.get("MONGODB_ADDRESS", "localhost")
+    user = environ.get("MONGODB_USER", "mongodb")
+    password = environ.get("MONGODB_PASSWORD", "mongodb")
+    connection_string = f"mongodb://{user}:{password}@{host}/"
+
+    client = MongoClient(connection_string)
+    return {
+        "user": UserMongodbRepository(client)
     }

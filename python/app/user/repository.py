@@ -4,6 +4,7 @@ from abc import abstractmethod
 from abc import abstractmethod
 from datetime import datetime
 from psycopg.rows import dict_row
+from bson import ObjectId
 
 
 class UserRepository:
@@ -95,4 +96,33 @@ class UserPostgresRepository(UserRepository):
             "password": row["password"],
             "createdAt": row["created_at"],
             "updatedAt": row["updated_at"]
+        }
+
+
+class UserMongodbRepository(UserRepository):
+    def __init__(self, client) -> None:
+        super().__init__()
+        self.collection = client.get_database("app").users
+
+    def get_by_id(self, id):
+        if not isinstance(id, ObjectId):
+            id = ObjectId(id)
+        user = self.collection.find_one({"_id": id})
+        return self._to_user(user)
+
+    def create(self, user):
+        result = self.collection.insert_one(
+            {**user, "createdAt": datetime.now(), "updatedAt": datetime.now()})
+        return self.get_by_id(result.inserted_id)
+
+    def _to_user(self, user):
+        return {
+            "id": str(user["_id"]),
+            "username": user["username"],
+            "name": user["name"],
+            "surname": user["surname"],
+            "age": user["age"],
+            "password": user["password"],
+            "createdAt": user["createdAt"],
+            "updatedAt": user["updatedAt"]
         }
