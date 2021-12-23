@@ -13,7 +13,7 @@ Content-type: application/json
 
 #### Response
 @user_id = {{create_user.response.body.$.id}}
-@user_passoword = {{create_user.response.body.$.password}}
+@user_password = {{create_user.response.body.$.password}}
 
 
 ### Get user
@@ -21,7 +21,7 @@ Content-type: application/json
 GET http://localhost:3000/user/{{ user_id }}
 
 #### Response
-@user_passoword = {{get_user.response.body.$.password}}
+@user_password = {{get_user.response.body.$.password}}
 
 
 ### Get user not found
