@@ -14,9 +14,7 @@ type userPostgresRepository struct {
 }
 
 func NewUserPostgresRepository(pool *pgxpool.Pool) UserRepository {
-	return &userPostgresRepository{
-		pool: pool,
-	}
+	return &userPostgresRepository{pool: pool}
 }
 
 func (u *userPostgresRepository) Create(user *User) (*User, error) {
@@ -41,7 +39,7 @@ func (u *userPostgresRepository) Create(user *User) (*User, error) {
 func (u *userPostgresRepository) FindById(rawUserId interface{}) (*User, error) {
 	userId, err := strconv.Atoi(rawUserId.(string))
 	if err != nil {
-		return nil, userError{fmt.Errorf("invalid user ID: %w", err)}
+		return nil, userError{err: fmt.Errorf("invalid user ID: %w", err)}
 	}
 	rows, err := u.pool.Query(
 		context.Background(),
@@ -61,6 +59,8 @@ func extractUserFromRows(rows pgx.Rows) (*User, error) {
 		if err != nil {
 			return nil, err
 		}
+		creationTime := values[6].(time.Time)
+		updateTime := values[7].(time.Time)
 		return &User{
 			Id:        int64(values[0].(int32)),
 			Username:  values[1].(string),
@@ -68,11 +68,15 @@ func extractUserFromRows(rows pgx.Rows) (*User, error) {
 			Surname:   values[3].(string),
 			Password:  values[4].(string),
 			Age:       uint(values[5].(int32)),
-			CreatedAt: values[6].(time.Time),
-			UpdatedAt: values[7].(time.Time),
+			CreatedAt: &creationTime,
+			UpdatedAt: &updateTime,
 		}, nil
 	}
 	return nil, fmt.Errorf("no user found")
+}
+
+func (u *userPostgresRepository) UpdatePassword(userId interface{}, passwordUpdate *PasswordUpdate) (*User, error) {
+	panic("implement me")
 }
 
 func (u *userPostgresRepository) Close() error {

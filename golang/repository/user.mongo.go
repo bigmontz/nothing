@@ -15,9 +15,7 @@ type userMongoRepository struct {
 }
 
 func NewUserMongoRepository(driver *mongo.Client) UserRepository {
-	return &userMongoRepository{
-		client: driver,
-	}
+	return &userMongoRepository{client: driver}
 }
 
 func (u *userMongoRepository) Create(user *User) (*User, error) {
@@ -42,6 +40,10 @@ func (u *userMongoRepository) FindById(userId interface{}) (*User, error) {
 	return documentToUser(document), nil
 }
 
+func (u *userMongoRepository) UpdatePassword(userId interface{}, passwordUpdate *PasswordUpdate) (*User, error) {
+	panic("implement me")
+}
+
 func (u *userMongoRepository) Close() error {
 	return u.client.Disconnect(context.Background())
 }
@@ -64,14 +66,16 @@ func userToDocument(user *User) bson.M {
 }
 
 func documentToUser(doc bson.M) *User {
+	creationTime := doc["createdAt"].(primitive.DateTime).Time()
+	updateTime := doc["updatedAt"].(primitive.DateTime).Time()
 	return &User{
 		Username:  doc["username"].(string),
 		Name:      doc["name"].(string),
 		Age:       uint(doc["age"].(int64)),
 		Surname:   doc["surname"].(string),
 		Password:  doc["password"].(string),
-		CreatedAt: doc["createdAt"].(primitive.DateTime).Time(),
-		UpdatedAt: doc["updatedAt"].(primitive.DateTime).Time(),
+		CreatedAt: &creationTime,
+		UpdatedAt: &updateTime,
 		Id:        doc["_id"].(primitive.ObjectID).Hex(),
 	}
 }
