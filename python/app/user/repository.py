@@ -28,7 +28,7 @@ class UserNeo4jRepository(UserRepository):
 
     def _get_by_id(self, tx, id):
         record = tx.run("MATCH (user:User) WHERE ID(user) = $id RETURN user", {
-                        "id": id}).single()
+                        "id": int(id)}).single()
         node = record.get("user")
         return self._to_user(node)
 

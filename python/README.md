@@ -6,4 +6,4 @@
 
 ## Run
 
-```FLASK_DEBUG=1 DB_TYPE=<db_name> ./manage.py run -p 3000```
+```FLASK_DEBUG=1 DB_TYPE=<db_name> ./manage.py run -p 3002```
