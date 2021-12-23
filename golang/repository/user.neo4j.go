@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/bigmontz/nothing/ioutils"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
+	"strconv"
 	"time"
 )
 
@@ -46,7 +47,11 @@ func (u *userNeo4jRepository) Create(user *User) (result *User, err error) {
 	return res.(*User), nil
 }
 
-func (u *userNeo4jRepository) FindById(userId int64) (result *User, err error) {
+func (u *userNeo4jRepository) FindById(rawUserId interface{}) (result *User, err error) {
+	userId, err := strconv.Atoi(rawUserId.(string))
+	if err != nil {
+		return nil, userError{fmt.Errorf("invalid user ID: %w", err)}
+	}
 	session := u.driver.NewSession(neo4j.SessionConfig{})
 	defer func() {
 		err = ioutils.SafeClose(err, session)

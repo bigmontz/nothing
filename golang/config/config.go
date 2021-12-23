@@ -7,6 +7,8 @@ import (
 	"github.com/bigmontz/nothing/repository"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetUserRepository() (repository.UserRepository, error) {
@@ -24,6 +26,12 @@ func GetUserRepository() (repository.UserRepository, error) {
 			return nil, err
 		}
 		return repository.NewUserPostgresRepository(driver), nil
+	case "mongodb":
+		driver, err := mongoDriver()
+		if err != nil {
+			return nil, err
+		}
+		return repository.NewUserMongoRepository(driver), nil
 	default:
 		return nil, fmt.Errorf("unsupported DB type %s", dbType)
 	}
@@ -47,4 +55,13 @@ func postgresDriver() (*pgxpool.Pool, error) {
 		ioutils.ReadEnv("POSTGRES_URL", "localhost"),
 	)
 	return pgxpool.Connect(context.Background(), url)
+}
+
+func mongoDriver() (*mongo.Client, error) {
+	url := fmt.Sprintf("mongodb://%s:%s@%s",
+		ioutils.ReadEnv("MONGODB_USER", "mongodb"),
+		ioutils.ReadEnv("MONGODB_USER", "mongodb"),
+		ioutils.ReadEnv("MONGODB_ADDRESS", "localhost"),
+	)
+	return mongo.Connect(context.Background(), options.Client().ApplyURI(url))
 }
