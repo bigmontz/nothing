@@ -48,7 +48,7 @@ export default class UserPostgresRepository {
       
       await client.query("COMMIT");
 
-      return { id };
+      return { id: Number(id) };
     } catch(error) {
       await client.query("ROLLBACK");
       throw error;

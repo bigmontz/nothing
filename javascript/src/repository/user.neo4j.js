@@ -56,7 +56,7 @@ export default class UserNeo4jRepository {
           `MATCH (user:User) WHERE ID(user) = $id SET user.password = $newPassword, user.updatedAt = $updatedAt RETURN user`,
           { id: Number(id), newPassword, updatedAt: types.DateTime.fromStandardDate(new Date()) }
         );
-        return { id };
+        return { id: Number(id) };
       });
     } finally {
       await session.close();
