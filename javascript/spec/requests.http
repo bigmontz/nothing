@@ -51,7 +51,7 @@ Content-type: application/json
 }
 
 
-### Update passowrd wrong password
+### Update password wrong password
 # @name update_password_wrong_password
 PUT http://localhost:3000/user/{{user_id}}/password
 Content-type: application/json
