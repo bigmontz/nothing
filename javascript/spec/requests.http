@@ -35,7 +35,7 @@ PUT http://localhost:3000/user/{{user_id}}/password
 Content-type: application/json
 
 {
-  "password": "{{user_passoword}}",
+  "password": "{{user_password}}",
   "newPassword": "the_new_password"
 }
 
