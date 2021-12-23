@@ -1,7 +1,7 @@
 from flask import Blueprint
 from .routes import register_routes
 from .controller import UserController
-from .repository import UserRepository, UserNeo4jRepository
+from .repository import UserRepository
 
 
 def create_blueprint(user_repository: UserRepository):
