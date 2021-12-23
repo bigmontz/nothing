@@ -50,12 +50,8 @@ class UserNeo4jRepository(UserRepository):
 
     def _to_user(self, node):
         return {
+            **node,
             "id": node.id,
-            "username": node.get("username"),
-            "name": node.get("name"),
-            "surname": node.get("surname"),
-            "age": node.get("age"),
-            "password": node.get("password"),
             "createdAt": node.get("createdAt").to_native(),
             "updatedAt": node.get("updatedAt").to_native()
         }
@@ -87,16 +83,11 @@ class UserPostgresRepository(UserRepository):
             return self._to_user(row)
 
     def _to_user(self, row):
-        return {
-            "id": row["id"],
-            "username": row["username"],
-            "name": row["name"],
-            "surname": row["surname"],
-            "age": row["age"],
-            "password": row["password"],
-            "createdAt": row["created_at"],
-            "updatedAt": row["updated_at"]
-        }
+        user = {**row, "createdAt": row["created_at"],
+                "updatedAt": row["updated_at"]}
+        del user["created_at"]
+        del user["updated_at"]
+        return user
 
 
 class UserMongodbRepository(UserRepository):
@@ -116,13 +107,8 @@ class UserMongodbRepository(UserRepository):
         return self.get_by_id(result.inserted_id)
 
     def _to_user(self, user):
-        return {
-            "id": str(user["_id"]),
-            "username": user["username"],
-            "name": user["name"],
-            "surname": user["surname"],
-            "age": user["age"],
-            "password": user["password"],
-            "createdAt": user["createdAt"],
-            "updatedAt": user["updatedAt"]
-        }
+        user = {**user,
+                "id": str(user["_id"])}
+
+        del user["_id"]
+        return user
