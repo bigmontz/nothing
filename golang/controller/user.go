@@ -2,11 +2,9 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/bigmontz/nothing/repository"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -41,30 +39,35 @@ func (u *userController) create(responseWriter http.ResponseWriter, request *htt
 		responseWriter.WriteHeader(http.StatusBadRequest)
 		responseWriter.Header().Add("Content-Type", "plain/text")
 		_, _ = responseWriter.Write([]byte(err.Error()))
+		return
 	}
 	result, err := u.userRepository.Create(user)
-	marshalUser(responseWriter, err, result)
-}
-
-func (u *userController) findById(responseWriter http.ResponseWriter, request *http.Request) {
-	rawUserId := strings.TrimPrefix(request.RequestURI, "/user/")
-	userId, err := strconv.ParseInt(rawUserId, 10, 64)
-	if err != nil {
-		responseWriter.WriteHeader(http.StatusBadRequest)
-		responseWriter.Header().Add("Content-Type", "plain/text")
-		_, _ = responseWriter.Write([]byte(fmt.Sprintf("invalid user ID: %s", err.Error())))
-	}
-	result, err := u.userRepository.FindById(userId)
-	marshalUser(responseWriter, err, result)
-}
-
-func marshalUser(responseWriter http.ResponseWriter, err error, result *repository.User) {
 	if err != nil {
 		responseWriter.WriteHeader(http.StatusInternalServerError)
 		responseWriter.Header().Add("Content-Type", "plain/text")
 		_, _ = responseWriter.Write([]byte(err.Error()))
 		return
 	}
+	marshalUser(responseWriter, result)
+}
+
+func (u *userController) findById(responseWriter http.ResponseWriter, request *http.Request) {
+	rawUserId := strings.TrimPrefix(request.RequestURI, "/user/")
+	result, err := u.userRepository.FindById(rawUserId)
+	if err != nil {
+		if isUserError(err) {
+			responseWriter.WriteHeader(http.StatusBadRequest)
+		} else {
+			responseWriter.WriteHeader(http.StatusInternalServerError)
+		}
+		responseWriter.Header().Add("Content-Type", "plain/text")
+		_, _ = responseWriter.Write([]byte(err.Error()))
+		return
+	}
+	marshalUser(responseWriter, result)
+}
+
+func marshalUser(responseWriter http.ResponseWriter, result *repository.User) {
 	responseWriter.WriteHeader(http.StatusOK)
 	responseWriter.Header().Add("Content-Type", "application/json")
 	_ = json.NewEncoder(responseWriter).Encode(result)
@@ -76,4 +79,13 @@ func unmarshalUser(body io.ReadCloser) (*repository.User, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+func isUserError(err error) bool {
+	userError, ok := err.(userError)
+	return ok && userError.IsUserError()
+}
+
+type userError interface {
+	IsUserError() bool
 }

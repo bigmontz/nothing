@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"strconv"
 	"time"
 )
 
@@ -37,7 +38,11 @@ func (u *userPostgresRepository) Create(user *User) (*User, error) {
 	return extractUserFromRows(rows)
 }
 
-func (u *userPostgresRepository) FindById(userId int64) (*User, error) {
+func (u *userPostgresRepository) FindById(rawUserId interface{}) (*User, error) {
+	userId, err := strconv.Atoi(rawUserId.(string))
+	if err != nil {
+		return nil, userError{fmt.Errorf("invalid user ID: %w", err)}
+	}
 	rows, err := u.pool.Query(
 		context.Background(),
 		"SELECT * FROM users WHERE id = $1",
