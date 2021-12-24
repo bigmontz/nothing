@@ -52,6 +52,30 @@ func (u *userPostgresRepository) FindById(rawUserId interface{}) (*User, error) 
 	return extractUserFromRows(rows)
 }
 
+func (u *userPostgresRepository) UpdatePassword(rawUserId interface{}, passwordUpdate *PasswordUpdate) (*User, error) {
+	userId, err := strconv.Atoi(rawUserId.(string))
+	if err != nil {
+		return nil, userError{err: fmt.Errorf("invalid user ID: %w", err)}
+	}
+	result, err := u.pool.Exec(
+		context.Background(),
+		"UPDATE users SET password = $3, updated_at = $4 WHERE id = $1 AND password = $2",
+		userId,
+		passwordUpdate.Current,
+		passwordUpdate.New,
+		time.Now().In(time.UTC),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if result.RowsAffected() == 0 {
+		return nil, userError{err: fmt.Errorf("user not found"), notFound: true}
+	}
+	return &User{
+		Id: userId,
+	}, nil
+}
+
 func extractUserFromRows(rows pgx.Rows) (*User, error) {
 	defer rows.Close()
 	for rows.Next() {
@@ -73,10 +97,6 @@ func extractUserFromRows(rows pgx.Rows) (*User, error) {
 		}, nil
 	}
 	return nil, fmt.Errorf("no user found")
-}
-
-func (u *userPostgresRepository) UpdatePassword(userId interface{}, passwordUpdate *PasswordUpdate) (*User, error) {
-	panic("implement me")
 }
 
 func (u *userPostgresRepository) Close() error {
