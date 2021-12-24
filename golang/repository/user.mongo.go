@@ -29,7 +29,7 @@ func (u *userMongoRepository) Create(user *User) (*User, error) {
 func (u *userMongoRepository) FindById(userId interface{}) (*User, error) {
 	objectId, err := asObjectId(userId)
 	if err != nil {
-		return nil, err
+		return nil, userError{err: err}
 	}
 	byObjectId := bson.M{"_id": objectId}
 	result := u.userCollection().FindOne(context.Background(), byObjectId)
@@ -41,7 +41,26 @@ func (u *userMongoRepository) FindById(userId interface{}) (*User, error) {
 }
 
 func (u *userMongoRepository) UpdatePassword(userId interface{}, passwordUpdate *PasswordUpdate) (*User, error) {
-	panic("implement me")
+	objectId, err := asObjectId(userId)
+	if err != nil {
+		return nil, userError{err: err}
+	}
+	byObjectIdAndPassword := bson.M{"_id": objectId, "password": passwordUpdate.Current}
+	result := u.userCollection().FindOneAndUpdate(
+		context.Background(),
+		byObjectIdAndPassword,
+		bson.M{"$set": bson.M{
+			"password":  passwordUpdate.New,
+			"updatedAt": time.Now(),
+		}},
+	)
+	if result.Err() == mongo.ErrNoDocuments {
+		return nil, userError{
+			err:      fmt.Errorf("could not find user"),
+			notFound: true,
+		}
+	}
+	return &User{Id: objectId.Hex()}, nil
 }
 
 func (u *userMongoRepository) Close() error {
