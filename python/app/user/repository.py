@@ -5,6 +5,7 @@ from abc import abstractmethod
 from datetime import datetime
 from psycopg.rows import dict_row
 from bson import ObjectId
+from .exception import PasswordNotMatchException, UserNotFoundException
 
 
 class UserRepository:
@@ -29,6 +30,8 @@ class UserNeo4jRepository(UserRepository):
     def _get_by_id(self, tx, id):
         record = tx.run("MATCH (user:User) WHERE ID(user) = $id RETURN user", {
                         "id": int(id)}).single()
+        if not record:
+            raise UserNotFoundException()
         node = record.get("user")
         return self._to_user(node)
 
@@ -37,6 +40,7 @@ class UserNeo4jRepository(UserRepository):
             return session.write_transaction(self._create, user)
 
     def _create(self, tx, user):
+        now = datetime.now()
         record = tx.run("""CREATE (user:User
                             {
                                 username: $username, name: $name,
@@ -44,9 +48,35 @@ class UserNeo4jRepository(UserRepository):
                                 password: $password, createdAt: $createdAt,
                                 updatedAt: $updatedAt
                             }) RETURN user""",
-                        {**user, "createdAt": datetime.now(), "updatedAt": datetime.now()}).single()
+                        {**user, "createdAt": now, "updatedAt": now}).single()
         node = record.get("user")
         return self._to_user(node)
+
+    def update_password(self, id, password, new_password):
+        with self.driver.session() as session:
+            return session.write_transaction(self._update_password, id, password, new_password)
+
+    def _update_password(self, tx, id, password, new_password):
+        record = tx.run("MATCH (user:User) WHERE ID(user) = $id RETURN user", {
+                        "id": int(id)}).single()
+        if not record:
+            raise UserNotFoundException()
+
+        node = record.get("user")
+
+        if node.get("password") != password:
+            raise PasswordNotMatchException()
+
+        tx.run("""MATCH (user:User) WHERE ID(user) = $id
+                SET user.password = $new_password,
+                    user.updatedAt=$updated_at""",
+               {
+                   "id": int(id),
+                   "new_password": new_password,
+                   "updated_at": datetime.now()
+               })
+
+        return {"id": node.id}
 
     def _to_user(self, node):
         return {
