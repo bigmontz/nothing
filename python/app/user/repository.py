@@ -95,23 +95,53 @@ class UserPostgresRepository(UserRepository):
 
     def get_by_id(self, id):
         with self.pool.connection() as conn:
-            cursor = conn.cursor(row_factory=dict_row)
-            cursor.execute("SELECT * FROM users WHERE id = %s", (id,))
-            row = cursor.fetchone()
-            return self._to_user(row)
+            with conn.cursor(row_factory=dict_row) as cursor:
+                cursor.execute("SELECT * FROM users WHERE id = %s", (id,))
+                row = cursor.fetchone()
+                if not row:
+                    raise UserNotFoundException()
+                return self._to_user(row)
 
     def create(self, user):
+        now = datetime.now()
         query = """INSERT INTO users
                     (username, name, surname,age,
                         password, created_at, updated_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *"""
         params = (user["username"], user["name"], user["surname"], user["age"],
-                  user["password"], datetime.now(), datetime.now())
+                  user["password"], now, now)
         with self.pool.connection() as conn:
-            cursor = conn.cursor(row_factory=dict_row)
-            cursor.execute(query, params)
-            row = cursor.fetchone()
-            return self._to_user(row)
+            with conn.cursor(row_factory=dict_row) as cursor:
+                try:
+                    cursor.execute(query, params)
+                    row = cursor.fetchone()
+                    conn.commit()
+                except Exception as e:
+                    conn.rollback()
+                    raise e
+                return self._to_user(row)
+
+    def update_password(self, id, password, new_password):
+        # see https://www.psycopg.org/docs/usage.html#transactions-control
+        query = """UPDATE users SET updated_at = %s, password = %s
+                    WHERE id = %s"""
+        params = (datetime.now(), new_password, id)
+        with self.pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cursor:
+                try:
+                    cursor.execute("SELECT * FROM users WHERE id = %s", (id,))
+                    row = cursor.fetchone()
+                    if not row:
+                        raise UserNotFoundException()
+                    if row["password"] != password:
+                        raise PasswordNotMatchException()
+
+                    cursor.execute(query, params)
+                    conn.commit()
+                except Exception as e:
+                    conn.rollback()
+                    raise e
+                return {"id": row["id"]}
 
     def _to_user(self, row):
         user = {**row, "createdAt": row["created_at"],
