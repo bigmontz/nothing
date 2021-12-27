@@ -326,12 +326,19 @@ class UserCockroachdbRepository(UserRepository):
                     raise PasswordNotMatchException()
 
                 cursor.execute(query, params)
-                return {"id": row["id"]}
+
+                # RETURNING ID AS STRING BECAUSE AN ISSUE
+                # WITH THE TEST SUITE IN JS
+                return {"id": str(row["id"])}
 
         return apply
 
     def _to_user(self, row):
-        user = {**row, "createdAt": row["created_at"],
+        user = {**row, 
+                # RETURNING ID AS STRING BECAUSE AN ISSUE
+                # WITH THE TEST SUITE IN JS
+                "id": str(row["id"]), 
+                "createdAt": row["created_at"],
                 "updatedAt": row["updated_at"]}
         del user["created_at"]
         del user["updated_at"]
