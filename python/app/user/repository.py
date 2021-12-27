@@ -5,6 +5,7 @@ from abc import abstractmethod
 from datetime import datetime
 from psycopg.rows import dict_row
 from bson import ObjectId
+from pymongo import WriteConcern, ReadPreference
 from .exception import PasswordNotMatchException, UserNotFoundException
 
 
@@ -123,18 +124,52 @@ class UserPostgresRepository(UserRepository):
 class UserMongodbRepository(UserRepository):
     def __init__(self, client) -> None:
         super().__init__()
+        self.client = client
         self.collection = client.get_database("app").users
 
     def get_by_id(self, id):
         if not isinstance(id, ObjectId):
             id = ObjectId(id)
         user = self.collection.find_one({"_id": id})
+        if not user:
+            raise UserNotFoundException()
         return self._to_user(user)
 
     def create(self, user):
         result = self.collection.insert_one(
             {**user, "createdAt": datetime.now(), "updatedAt": datetime.now()})
         return self.get_by_id(result.inserted_id)
+
+    def update_password(self, id, password, new_password):
+        # See https://docs.mongodb.com/manual/core/transactions/
+        wc_majority = WriteConcern("majority", wtimeout=1000)
+        with self.client.start_session() as session:
+            return session.with_transaction(
+                self._update_password(id, password, new_password),
+                write_concern=wc_majority,
+                read_preference=ReadPreference.PRIMARY
+            )
+
+    def _update_password(self, id, password, new_password):
+        def apply(session):
+            if not isinstance(id, ObjectId):
+                _id = ObjectId(id)
+            else:
+                _id = id
+            collection = session.client.get_database("app").users
+            user = collection.find_one({"_id": _id})
+            if not user:
+                raise UserNotFoundException()
+            if user["password"] != password:
+                raise PasswordNotMatchException()
+
+            collection.update_one(
+                {"_id": _id},
+                {"$set": {"password": new_password,
+                          "updatedAt": datetime.now()}})
+            return {"id": str(id)}
+
+        return apply
 
     def _to_user(self, user):
         user = {**user,

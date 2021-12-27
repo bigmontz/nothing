@@ -11,7 +11,7 @@ def with_api_wrapper(fn):
         except PasswordNotMatchException as e:
             return jsonify({"error": str(e)}), 400
         except Exception as e:
-            return jsonify({"error": str(e)})
+            return jsonify({"error": str(e)}), 500
     return wrapper
 
 
