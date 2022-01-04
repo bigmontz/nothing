@@ -57,8 +57,17 @@ func (u *userPostgresRepository) UpdatePassword(rawUserId interface{}, passwordU
 	if err != nil {
 		return nil, userError{err: fmt.Errorf("invalid user ID: %w", err)}
 	}
-	result, err := u.pool.Exec(
-		context.Background(),
+	ctx := context.Background()
+	// transaction functions cannot return any data, so we have to explicitly manage the transaction ourselves
+	// ==> lots of boilerplate (even more if we had several queries)
+	tx, err := u.pool.BeginTx(ctx, pgx.TxOptions{
+		AccessMode: pgx.ReadWrite,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result, err := tx.Exec(
+		ctx,
 		"UPDATE users SET password = $3, updated_at = $4 WHERE id = $1 AND password = $2",
 		userId,
 		passwordUpdate.Current,
@@ -66,14 +75,19 @@ func (u *userPostgresRepository) UpdatePassword(rawUserId interface{}, passwordU
 		time.Now().In(time.UTC),
 	)
 	if err != nil {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr == nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("rollback error + %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	if result.RowsAffected() == 0 {
 		return nil, userError{err: fmt.Errorf("user not found"), notFound: true}
 	}
-	return &User{
-		Id: userId,
-	}, nil
+	return &User{Id: userId}, nil
 }
 
 func extractUserFromRows(rows pgx.Rows) (*User, error) {
