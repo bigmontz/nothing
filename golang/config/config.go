@@ -60,7 +60,7 @@ func postgresDriver() (*pgxpool.Pool, error) {
 func mongoDriver() (*mongo.Client, error) {
 	url := fmt.Sprintf("mongodb://%s:%s@%s",
 		ioutils.ReadEnv("MONGODB_USER", "mongodb"),
-		ioutils.ReadEnv("MONGODB_USER", "mongodb"),
+		ioutils.ReadEnv("MONGODB_PASSWORD", "mongodb"),
 		ioutils.ReadEnv("MONGODB_ADDRESS", "localhost"),
 	)
 	return mongo.Connect(context.Background(), options.Client().ApplyURI(url))
