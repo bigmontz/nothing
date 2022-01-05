@@ -45,22 +45,34 @@ func (u *userMongoRepository) UpdatePassword(userId interface{}, passwordUpdate 
 	if err != nil {
 		return nil, userError{err: err}
 	}
-	byObjectIdAndPassword := bson.M{"_id": objectId, "password": passwordUpdate.Current}
-	result := u.userCollection().FindOneAndUpdate(
-		context.Background(),
-		byObjectIdAndPassword,
-		bson.M{"$set": bson.M{
-			"password":  passwordUpdate.New,
-			"updatedAt": time.Now(),
-		}},
-	)
-	if result.Err() == mongo.ErrNoDocuments {
-		return nil, userError{
-			err:      fmt.Errorf("could not find user"),
-			notFound: true,
-		}
+	ctx := context.Background()
+	session, err := u.client.StartSession()
+	if err != nil {
+		return nil, err
 	}
-	return &User{Id: objectId.Hex()}, nil
+	defer session.EndSession(ctx)
+	// transaction function - with retry (on "TransientTransactionError"/"UnknownTransactionCommitResult" errors)!
+	result, err := session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+		result := userCollectionFromClient(sessCtx.Client()).FindOneAndUpdate(
+			ctx,
+			bson.M{"_id": objectId, "password": passwordUpdate.Current},
+			bson.M{"$set": bson.M{
+				"password":  passwordUpdate.New,
+				"updatedAt": time.Now(),
+			}},
+		)
+		if result.Err() == mongo.ErrNoDocuments {
+			return nil, userError{
+				err:      fmt.Errorf("could not find user"),
+				notFound: true,
+			}
+		}
+		return &User{Id: objectId.Hex()}, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*User), nil
 }
 
 func (u *userMongoRepository) Close() error {
@@ -68,7 +80,11 @@ func (u *userMongoRepository) Close() error {
 }
 
 func (u *userMongoRepository) userCollection() *mongo.Collection {
-	return u.client.Database("admin").Collection("users")
+	return userCollectionFromClient(u.client)
+}
+
+func userCollectionFromClient(client *mongo.Client) *mongo.Collection {
+	return client.Database("admin").Collection("users")
 }
 
 func userToDocument(user *User) bson.M {
