@@ -15,9 +15,7 @@ type userMongoRepository struct {
 }
 
 func NewUserMongoRepository(driver *mongo.Client) UserRepository {
-	return &userMongoRepository{
-		client: driver,
-	}
+	return &userMongoRepository{client: driver}
 }
 
 func (u *userMongoRepository) Create(user *User) (*User, error) {
@@ -31,7 +29,7 @@ func (u *userMongoRepository) Create(user *User) (*User, error) {
 func (u *userMongoRepository) FindById(userId interface{}) (*User, error) {
 	objectId, err := asObjectId(userId)
 	if err != nil {
-		return nil, err
+		return nil, userError{err: err}
 	}
 	byObjectId := bson.M{"_id": objectId}
 	result := u.userCollection().FindOne(context.Background(), byObjectId)
@@ -42,12 +40,51 @@ func (u *userMongoRepository) FindById(userId interface{}) (*User, error) {
 	return documentToUser(document), nil
 }
 
+func (u *userMongoRepository) UpdatePassword(userId interface{}, passwordUpdate *PasswordUpdate) (*User, error) {
+	objectId, err := asObjectId(userId)
+	if err != nil {
+		return nil, userError{err: err}
+	}
+	ctx := context.Background()
+	session, err := u.client.StartSession()
+	if err != nil {
+		return nil, err
+	}
+	defer session.EndSession(ctx)
+	// transaction function - with retry (on "TransientTransactionError"/"UnknownTransactionCommitResult" errors)!
+	result, err := session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+		result := userCollectionFromClient(sessCtx.Client()).FindOneAndUpdate(
+			ctx,
+			bson.M{"_id": objectId, "password": passwordUpdate.Current},
+			bson.M{"$set": bson.M{
+				"password":  passwordUpdate.New,
+				"updatedAt": time.Now(),
+			}},
+		)
+		if result.Err() == mongo.ErrNoDocuments {
+			return nil, userError{
+				err:      fmt.Errorf("could not find user"),
+				notFound: true,
+			}
+		}
+		return &User{Id: objectId.Hex()}, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*User), nil
+}
+
 func (u *userMongoRepository) Close() error {
 	return u.client.Disconnect(context.Background())
 }
 
 func (u *userMongoRepository) userCollection() *mongo.Collection {
-	return u.client.Database("admin").Collection("users")
+	return userCollectionFromClient(u.client)
+}
+
+func userCollectionFromClient(client *mongo.Client) *mongo.Collection {
+	return client.Database("admin").Collection("users")
 }
 
 func userToDocument(user *User) bson.M {
@@ -64,14 +101,16 @@ func userToDocument(user *User) bson.M {
 }
 
 func documentToUser(doc bson.M) *User {
+	creationTime := doc["createdAt"].(primitive.DateTime).Time()
+	updateTime := doc["updatedAt"].(primitive.DateTime).Time()
 	return &User{
 		Username:  doc["username"].(string),
 		Name:      doc["name"].(string),
 		Age:       uint(doc["age"].(int64)),
 		Surname:   doc["surname"].(string),
 		Password:  doc["password"].(string),
-		CreatedAt: doc["createdAt"].(primitive.DateTime).Time(),
-		UpdatedAt: doc["updatedAt"].(primitive.DateTime).Time(),
+		CreatedAt: &creationTime,
+		UpdatedAt: &updateTime,
 		Id:        doc["_id"].(primitive.ObjectID).Hex(),
 	}
 }

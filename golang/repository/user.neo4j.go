@@ -29,6 +29,13 @@ RETURN user`
 
 const findByIdQuery = `MATCH (user:User) WHERE ID(user) = $id RETURN user`
 
+const updatePasswordQuery = `
+MATCH (user:User {password: $current})
+WHERE ID(user) = $id
+SET user.password = $new, user.updatedAt = $updatedAt
+RETURN user{id: $id} AS user
+`
+
 func (u *userNeo4jRepository) Create(user *User) (result *User, err error) {
 	session := u.driver.NewSession(neo4j.SessionConfig{})
 	defer func() {
@@ -50,7 +57,7 @@ func (u *userNeo4jRepository) Create(user *User) (result *User, err error) {
 func (u *userNeo4jRepository) FindById(rawUserId interface{}) (result *User, err error) {
 	userId, err := strconv.Atoi(rawUserId.(string))
 	if err != nil {
-		return nil, userError{fmt.Errorf("invalid user ID: %w", err)}
+		return nil, userError{err: fmt.Errorf("invalid user ID: %w", err)}
 	}
 	session := u.driver.NewSession(neo4j.SessionConfig{})
 	defer func() {
@@ -65,6 +72,48 @@ func (u *userNeo4jRepository) FindById(rawUserId interface{}) (result *User, err
 	})
 	if err != nil {
 		return
+	}
+	return res.(*User), nil
+}
+
+func (u *userNeo4jRepository) UpdatePassword(rawUserId interface{}, request *PasswordUpdate) (*User, error) {
+	userId, err := strconv.Atoi(rawUserId.(string))
+	if err != nil {
+		return nil, userError{err: fmt.Errorf("invalid user ID: %w", err)}
+	}
+	session := u.driver.NewSession(neo4j.SessionConfig{})
+	defer func() {
+		err = ioutils.SafeClose(err, session)
+	}()
+	res, err := session.WriteTransaction(func(tx neo4j.Transaction) (interface{}, error) {
+		result, txFuncErr := tx.Run(updatePasswordQuery, map[string]interface{}{
+			"id":        userId,
+			"current":   request.Current,
+			"new":       request.New,
+			"updatedAt": time.Now().In(time.UTC),
+		})
+		if txFuncErr != nil {
+			return nil, txFuncErr
+		}
+		if !result.Next() {
+			return nil, userError{
+				err:      fmt.Errorf("could not find user"),
+				notFound: true,
+			}
+		}
+		user, found := result.Record().Get("user")
+		if !found {
+			return nil, userError{
+				err:      fmt.Errorf("unexpected query result"),
+				notFound: true,
+			}
+		}
+		return &User{
+			Id: (user.(map[string]interface{})["id"]).(int64),
+		}, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return res.(*User), nil
 }
@@ -86,14 +135,16 @@ func extractUserFromResult(result neo4j.Result) (interface{}, error) {
 }
 
 func userToMap(user neo4j.Node) *User {
+	creationTime := user.Props["createdAt"].(time.Time)
+	updateTime := user.Props["updatedAt"].(time.Time)
 	return &User{
 		Username:  user.Props["username"].(string),
 		Name:      user.Props["name"].(string),
 		Age:       uint(user.Props["age"].(int64)),
 		Surname:   user.Props["surname"].(string),
 		Password:  user.Props["password"].(string),
-		CreatedAt: user.Props["createdAt"].(time.Time),
-		UpdatedAt: user.Props["updatedAt"].(time.Time),
+		CreatedAt: &creationTime,
+		UpdatedAt: &updateTime,
 		Id:        user.Id,
 	}
 }

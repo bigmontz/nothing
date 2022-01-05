@@ -14,9 +14,7 @@ type userPostgresRepository struct {
 }
 
 func NewUserPostgresRepository(pool *pgxpool.Pool) UserRepository {
-	return &userPostgresRepository{
-		pool: pool,
-	}
+	return &userPostgresRepository{pool: pool}
 }
 
 func (u *userPostgresRepository) Create(user *User) (*User, error) {
@@ -41,7 +39,7 @@ func (u *userPostgresRepository) Create(user *User) (*User, error) {
 func (u *userPostgresRepository) FindById(rawUserId interface{}) (*User, error) {
 	userId, err := strconv.Atoi(rawUserId.(string))
 	if err != nil {
-		return nil, userError{fmt.Errorf("invalid user ID: %w", err)}
+		return nil, userError{err: fmt.Errorf("invalid user ID: %w", err)}
 	}
 	rows, err := u.pool.Query(
 		context.Background(),
@@ -54,6 +52,44 @@ func (u *userPostgresRepository) FindById(rawUserId interface{}) (*User, error) 
 	return extractUserFromRows(rows)
 }
 
+func (u *userPostgresRepository) UpdatePassword(rawUserId interface{}, passwordUpdate *PasswordUpdate) (*User, error) {
+	userId, err := strconv.Atoi(rawUserId.(string))
+	if err != nil {
+		return nil, userError{err: fmt.Errorf("invalid user ID: %w", err)}
+	}
+	ctx := context.Background()
+	// transaction functions cannot return any data, so we have to explicitly manage the transaction ourselves
+	// ==> lots of boilerplate (even more if we had several queries)
+	tx, err := u.pool.BeginTx(ctx, pgx.TxOptions{
+		AccessMode: pgx.ReadWrite,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result, err := tx.Exec(
+		ctx,
+		"UPDATE users SET password = $3, updated_at = $4 WHERE id = $1 AND password = $2",
+		userId,
+		passwordUpdate.Current,
+		passwordUpdate.New,
+		time.Now().In(time.UTC),
+	)
+	if err != nil {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr == nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("rollback error + %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	if result.RowsAffected() == 0 {
+		return nil, userError{err: fmt.Errorf("user not found"), notFound: true}
+	}
+	return &User{Id: userId}, nil
+}
+
 func extractUserFromRows(rows pgx.Rows) (*User, error) {
 	defer rows.Close()
 	for rows.Next() {
@@ -61,6 +97,8 @@ func extractUserFromRows(rows pgx.Rows) (*User, error) {
 		if err != nil {
 			return nil, err
 		}
+		creationTime := values[6].(time.Time)
+		updateTime := values[7].(time.Time)
 		return &User{
 			Id:        int64(values[0].(int32)),
 			Username:  values[1].(string),
@@ -68,8 +106,8 @@ func extractUserFromRows(rows pgx.Rows) (*User, error) {
 			Surname:   values[3].(string),
 			Password:  values[4].(string),
 			Age:       uint(values[5].(int32)),
-			CreatedAt: values[6].(time.Time),
-			UpdatedAt: values[7].(time.Time),
+			CreatedAt: &creationTime,
+			UpdatedAt: &updateTime,
 		}, nil
 	}
 	return nil, fmt.Errorf("no user found")
