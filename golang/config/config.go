@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/bigmontz/nothing/ioutils"
 	"github.com/bigmontz/nothing/repository"
@@ -32,6 +33,15 @@ func GetUserRepository() (repository.UserRepository, error) {
 			return nil, err
 		}
 		return repository.NewUserMongoRepository(driver), nil
+	case "cockroachdb":
+		driver, err := cockroachDriver()
+		if err != nil {
+			return nil, err
+		}
+		if err := initCockroachTable(driver); err != nil {
+			return nil, err
+		}
+		return repository.NewUserCockroachRepository(driver), nil
 	default:
 		return nil, fmt.Errorf("unsupported DB type %s", dbType)
 	}
@@ -64,4 +74,29 @@ func mongoDriver() (*mongo.Client, error) {
 		ioutils.ReadEnv("MONGODB_ADDRESS", "localhost"),
 	)
 	return mongo.Connect(context.Background(), options.Client().ApplyURI(url))
+}
+
+func cockroachDriver() (*sql.DB, error) {
+	url := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		ioutils.ReadEnv("COCKROACH_USER", "admin"),
+		ioutils.ReadEnv("COCKROACH_USER", "cockroach"),
+		ioutils.ReadEnv("COCKROACH_URL", "localhost"),
+		ioutils.ReadEnv("COCKROACH_PORT", "26257"),
+		ioutils.ReadEnv("COCKROACH_DATABASE", "postgres"),
+	)
+	return sql.Open("postgres", url)
+}
+
+func initCockroachTable(driver *sql.DB) error {
+	_, err := driver.Exec("CREATE TABLE IF NOT EXISTS users (" +
+		"id SERIAL PRIMARY KEY," +
+		"username VARCHAR(255) NOT NULL," +
+		"name VARCHAR(255) NOT NULL," +
+		"surname VARCHAR(255) NOT NULL," +
+		"password VARCHAR(255) NOT NULL," +
+		"age INTEGER NOT NULL," +
+		"created_at TIMESTAMP NOT NULL DEFAULT NOW(), " +
+		"updated_at TIMESTAMP NOT NULL DEFAULT NOW()" +
+		");")
+	return err
 }

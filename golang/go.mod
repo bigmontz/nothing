@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/jackc/pgx/v4 v4.14.1
+	github.com/lib/pq v1.10.2
 	github.com/neo4j/neo4j-go-driver/v4 v4.4.0
 	go.mongodb.org/mongo-driver v1.8.1
 )
