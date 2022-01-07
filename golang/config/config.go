@@ -79,7 +79,7 @@ func mongoDriver() (*mongo.Client, error) {
 func cockroachDriver() (*sql.DB, error) {
 	url := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		ioutils.ReadEnv("COCKROACH_USER", "admin"),
-		ioutils.ReadEnv("COCKROACH_USER", "cockroach"),
+		ioutils.ReadEnv("COCKROACH_PASSWORD", "cockroach"),
 		ioutils.ReadEnv("COCKROACH_URL", "localhost"),
 		ioutils.ReadEnv("COCKROACH_PORT", "26257"),
 		ioutils.ReadEnv("COCKROACH_DATABASE", "postgres"),
