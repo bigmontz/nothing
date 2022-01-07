@@ -12,12 +12,22 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
 
-public class UserNeo4jRepository implements UserRepository {
+public class UserNeo4jRepository implements UserRepository<Long> {
 
     private final Driver driver;
 
     public UserNeo4jRepository(Driver driver) {
         this.driver = driver;
+    }
+
+    @Override
+    public Long parseId(String rawId) {
+        return Long.parseLong(rawId, 10);
+    }
+
+    @Override
+    public String printId(Long aLong) {
+        return aLong.toString();
     }
 
     @Override
@@ -28,16 +38,16 @@ public class UserNeo4jRepository implements UserRepository {
     }
 
     @Override
-    public Optional<User> findById(Object userId) {
+    public Optional<User> findById(Long userId) {
         try (Session session = driver.session()) {
-            return session.readTransaction(userRetrieval((int)userId));
+            return session.readTransaction(userRetrieval(userId));
         }
     }
 
     @Override
-    public boolean updatePassword(Object userId, PasswordUpdate passwordUpdate) {
+    public boolean updatePassword(Long userId, PasswordUpdate passwordUpdate) {
         try (Session session = driver.session()) {
-            return session.writeTransaction(userPasswordUpdate((int)userId, passwordUpdate));
+            return session.writeTransaction(userPasswordUpdate(userId, passwordUpdate));
         }
     }
 
@@ -62,7 +72,7 @@ public class UserNeo4jRepository implements UserRepository {
         };
     }
 
-    private TransactionWork<Optional<User>> userRetrieval(int userId) {
+    private TransactionWork<Optional<User>> userRetrieval(long userId) {
         return tx -> {
             Result result = tx.run("""               
                     MATCH (user:User) WHERE ID(user) = $id
@@ -75,14 +85,14 @@ public class UserNeo4jRepository implements UserRepository {
         };
     }
 
-    private TransactionWork<Boolean> userPasswordUpdate(int userId, PasswordUpdate passwordUpdate) {
+    private TransactionWork<Boolean> userPasswordUpdate(long userId, PasswordUpdate passwordUpdate) {
         return tx -> {
             Result result = tx.run("""               
-                    MATCH (user:User)
-                    WHERE ID(user) = $id AND user.password = $old
-                    SET user.password = $new
-                    RETURN COUNT(user) = 1 AS successfulUpdate
-            """, Map.of("id", userId, "old", passwordUpdate.getPassword(), "new", passwordUpdate.getNewPassword()));
+                            MATCH (user:User)
+                            WHERE ID(user) = $id AND user.password = $old
+                            SET user.password = $new
+                            RETURN COUNT(user) = 1 AS successfulUpdate
+                    """, Map.of("id", userId, "old", passwordUpdate.getPassword(), "new", passwordUpdate.getNewPassword()));
 
             return result.single().get("successfulUpdate").asBoolean();
         };
