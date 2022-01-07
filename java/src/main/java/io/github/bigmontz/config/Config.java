@@ -6,11 +6,14 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.github.bigmontz.repository.UserMongoRepository;
 import io.github.bigmontz.repository.UserNeo4jRepository;
+import io.github.bigmontz.repository.UserPostgresRepository;
 import io.github.bigmontz.repository.UserRepository;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
+import org.postgresql.ds.PGSimpleDataSource;
 
+import javax.sql.DataSource;
 import java.time.ZonedDateTime;
 
 import static com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES;
@@ -24,11 +27,12 @@ public class Config {
                 .create();
     }
 
-    public static UserRepository userRepository() {
+    public static UserRepository<?> userRepository() {
         var dbType = Env.getOrThrow("DB_TYPE", () -> new RuntimeException("missing DB_TYPE envvar"));
         return switch (dbType) {
             case "neo4j" -> new UserNeo4jRepository(neo4jDriver());
             case "mongodb" -> new UserMongoRepository(mongoDriver());
+            case "postgres" -> new UserPostgresRepository(postgresDriver());
             default -> throw new IllegalStateException(String.format("unsupported DB_TYPE %s", dbType));
         };
     }
@@ -47,5 +51,14 @@ public class Config {
                 Env.getOrDefault("MONGODB_USER", "mongodb"),
                 Env.getOrDefault("MONGODB_PASSWORD", "mongodb"),
                 Env.getOrDefault("MONGODB_ADDRESS", "localhost")));
+    }
+
+    private static DataSource postgresDriver() {
+        var url = String.format("jdbc:postgresql://%s/", Env.getOrDefault("POSTGRES_URL", "localhost"));
+        PGSimpleDataSource dataSource = new PGSimpleDataSource();
+        dataSource.setURL(url);
+        dataSource.setUser(Env.getOrDefault("POSTGRES_USER", "postgres"));
+        dataSource.setPassword(Env.getOrDefault("POSTGRES_PASSWORD", "postgres"));
+        return dataSource;
     }
 }
